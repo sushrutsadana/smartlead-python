@@ -7,8 +7,6 @@ class ActivityType(str, Enum):
     EMAIL_SENT = "email_sent"
     CALL_MADE = "call_made"
     LEAD_CREATED = "lead_created"
-    WHATSAPP_SENT = "whatsapp_sent"
-    WHATSAPP_RECEIVED = "whatsapp_received"
 
 class LeadCreate(BaseModel):
     first_name: str

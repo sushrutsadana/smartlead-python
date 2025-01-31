@@ -7,7 +7,10 @@ logger = logging.getLogger(__name__)
 
 class CallService:
     def __init__(self):
-        self.api_key = os.getenv('BLAND_AI_API_KEY')
+        self.api_key = os.environ.get('BLAND_AI_API_KEY')
+        if not self.api_key:
+            raise ValueError("BLAND_AI_API_KEY environment variable is not set")
+            
         self.base_url = 'https://api.bland.ai/v1'
         self.headers = {
             'Authorization': self.api_key
@@ -36,24 +39,22 @@ class CallService:
                 "max_duration": 12,
             }
 
-            # Log the request data
-            logger.info(f"Making call with data: {data}")
-            logger.info(f"Using headers: {self.headers}")
-
+            # Log the request data (excluding sensitive info)
+            logger.info(f"Making call to {phone_number}")
+            
             response = requests.post(
                 f'{self.base_url}/calls',
                 json=data,
                 headers=self.headers
             )
             
-            # Log the response
-            logger.info(f"Response status: {response.status_code}")
-            logger.info(f"Response body: {response.text}")
-            
             response.raise_for_status()
             logger.info(f"Successfully initiated call to {phone_number}")
             return response.json()
 
-        except Exception as e:
+        except requests.exceptions.RequestException as e:
             logger.error(f"Error making call: {str(e)}")
+            raise Exception(f"Failed to make call: {str(e)}")
+        except Exception as e:
+            logger.error(f"Unexpected error making call: {str(e)}")
             raise

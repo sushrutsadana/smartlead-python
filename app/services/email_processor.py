@@ -5,7 +5,7 @@ import anthropic
 import os
 import json
 import logging
-from typing import Dict, List
+from typing import Dict
 from ..schemas.lead import LeadCreate
 from .lead_service import LeadService
 from anthropic import Anthropic
@@ -13,17 +13,20 @@ from anthropic import Anthropic
 logger = logging.getLogger(__name__)
 
 class EmailProcessor:
-    def __init__(self):
+    def __init__(self, lead_service: LeadService):
         # Gmail setup
-        self.gmail_user = os.getenv('GMAIL_USER')
+        self.gmail_user = os.environ.get('GMAIL_USER')
         self.gmail = build('gmail', 'v1', credentials=Credentials.from_authorized_user_info({
-            'client_id': os.getenv('GMAIL_CLIENT_ID'),
-            'client_secret': os.getenv('GMAIL_CLIENT_SECRET'),
-            'refresh_token': os.getenv('GMAIL_REFRESH_TOKEN')
+            'client_id': os.environ.get('GMAIL_CLIENT_ID'),
+            'client_secret': os.environ.get('GMAIL_CLIENT_SECRET'),
+            'refresh_token': os.environ.get('GMAIL_REFRESH_TOKEN')
         }, ['https://www.googleapis.com/auth/gmail.modify']))
         
         # Claude setup
-        self.claude = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+        self.claude = anthropic.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY'))
+        
+        # Lead service
+        self.lead_service = lead_service
 
     def _extract_email_data(self, message: Dict) -> Dict:
         """Extract relevant data from email message"""
@@ -86,14 +89,15 @@ class EmailProcessor:
             # Parse Claude's response
             lead_data = json.loads(response.content[0].text)
             
-            # CHANGE: Always use the sender_email, ignoring what Claude returns
+            # Always use the sender_email
             lead_data = {
                 "first_name": lead_data.get("first_name", "Unknown"),
                 "last_name": lead_data.get("last_name", "Unknown"),
-                "email": sender_email,  # Force use of actual sender email
+                "email": sender_email,
                 "phone_number": lead_data.get("phone_number"),
                 "company_name": lead_data.get("company_name"),
-                "title": lead_data.get("title")
+                "title": lead_data.get("title"),
+                "lead_source": "email"
             }
 
             logger.info(f"Extracted lead data: {lead_data}")
@@ -107,7 +111,8 @@ class EmailProcessor:
                 "email": sender_email,
                 "phone_number": None,
                 "company_name": None,
-                "title": None
+                "title": None,
+                "lead_source": "email"
             }
 
     async def process_new_emails(self):
@@ -135,25 +140,15 @@ class EmailProcessor:
                     # Extract email content
                     decoded_email = self._extract_email_data(email_data)
                     
-                    # Extract lead data using Claude, passing the sender's email
+                    # Extract lead data using Claude
                     lead_data = await self._extract_lead_info(
                         decoded_email['body'], 
-                        decoded_email['from']  # Changed from 'from_email' to 'from'
+                        decoded_email['from']
                     )
                     
                     # Create lead
-                    lead = LeadCreate(
-                        first_name=lead_data['first_name'],
-                        last_name=lead_data['last_name'],
-                        email=lead_data['email'],  # This should now have the correct sender email
-                        phone_number=lead_data.get('phone_number'),
-                        company_name=lead_data.get('company_name'),
-                        title=lead_data.get('title'),
-                        lead_source='email'
-                    )
-                    
-                    # Save lead to database
-                    await LeadService.create_lead(lead)
+                    lead = LeadCreate(**lead_data)
+                    await self.lead_service.create_lead(lead)
                     
                     # Mark email as read
                     self.gmail.users().messages().modify(

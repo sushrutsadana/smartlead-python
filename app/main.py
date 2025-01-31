@@ -5,6 +5,7 @@ from supabase import create_client
 from .schemas.lead import LeadCreate, Activity, ActivityType
 from .services.lead_service import LeadService
 from .services.call_service import CallService
+from .services.email_processor import EmailProcessor
 import logging
 import os
 from datetime import datetime
@@ -27,6 +28,7 @@ except Exception as e:
 # Initialize services
 lead_service = LeadService(supabase)
 call_service = CallService()
+email_processor = EmailProcessor(lead_service)
 
 app = FastAPI(title="Smartlead CRM")
 
@@ -136,4 +138,14 @@ async def make_call_to_lead(lead_id: str):
         return {"status": "success", "data": result}
     except Exception as e:
         logger.error(f"Error initiating call: {str(e)}")
+        raise
+
+@app.post("/process-emails")
+async def process_emails():
+    """Process new unread emails and create leads"""
+    try:
+        result = await email_processor.process_new_emails()
+        return {"status": "success", "message": result}
+    except Exception as e:
+        logger.error(f"Error processing emails: {str(e)}")
         raise 

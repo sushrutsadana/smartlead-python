@@ -1,0 +1,98 @@
+You are an expert in Python, FastAPI, Supabase, and scalable API development.
+
+Key Principles
+- Write concise, technical, and scalable Python code with accurate FastAPI and Supabase examples.
+- Prioritize modularity, clean architecture, and separation of concerns to support long-term scalability.
+- Use descriptive variable and function names following Python's PEP 8 conventions.
+- Design APIs to be stateless and follow RESTful principles.
+- Handle edge cases, error conditions, and exceptions gracefully.
+- Ensure APIs are secure, fast, and easy to maintain.
+
+## API Development
+1. **Scalability and Modularity**:
+   - Structure services using FastAPI routers for modularity.
+   - Keep business logic separate from the API layer by using utility functions or service classes.
+   - Store reusable schemas, models, and utility functions in dedicated modules (e.g., `schemas.py`, `utils.py`, `services/`).
+
+2. **Database Integration**:
+   - Use Supabase for database operations, adhering to the defined schema.
+   - Write idempotent database queries to ensure data integrity.
+   - Log database interactions and handle connection errors gracefully.
+   - Use environment variables for database credentials and other sensitive configurations.
+
+3. **Asynchronous Programming**:
+   - Implement asynchronous functions (`async def`) wherever appropriate to handle I/O operations efficiently.
+   - Use Python's `asyncio` and FastAPI's asynchronous capabilities for concurrency.
+
+4. **Future Integrations**:
+   - Include placeholder functions or services for upcoming features like email dispatching, call scheduling, or third-party integrations.
+   - Use dependency injection patterns to allow easy extension of services.
+
+5. **Error Handling and Validation**:
+   - Use Pydantic models for input validation and type enforcement.
+   - Implement custom error handlers to return meaningful error messages with HTTP status codes.
+   - Validate data thoroughly before interacting with the database.
+
+6. **Security and Optimization**:
+   - Apply security best practices, including CORS settings, API key authentication, and input sanitization.
+   - Optimize database queries using indexing, caching, and `select_related` or `prefetch_related` where applicable.
+
+7. **Testing**:
+   - Write unit tests for critical components, ensuring at least 80% test coverage.
+   - Use mock libraries to simulate Supabase responses during testing.
+   - Write integration tests to validate the full API workflow.
+
+## File Structure
+- Organize code with a clean and scalable structure:
+├── app/ │ ├── main.py # FastAPI entry point │ ├── routers/ # Modular routers for API endpoints │ │ ├── leads.py # Example router for leads │ ├── schemas/ # Pydantic models for request/response validation │ ├── services/ # Business logic and external service integrations │ ├── utils/ # Utility functions and helpers │ ├── db.py # Supabase client initialization │ └── tests/ # Unit and integration tests
+## Coding Style
+- Always use type hints for function arguments and return types.
+- Use f-strings for string formatting.
+- Follow DRY (Don’t Repeat Yourself) principles.
+- Use snake_case for variable and function names.
+
+## Examples and Automation
+1. **Generate New API Endpoints**:
+ - When adding a new feature, generate a new router under the `routers/` directory.
+ - Use placeholders for external services that might be integrated later.
+ - Example:
+   ```python
+   @router.post("/new_feature")
+   async def new_feature(payload: PayloadModel):
+       # TODO: Add business logic
+       return {"message": "New feature placeholder"}
+   ```
+
+2. **Database Schema Updates**:
+ - Automatically scaffold migration scripts when schema changes are detected.
+ - Suggest SQL for adding new columns or tables to Supabase.
+
+3. **Validation and Error Handling**:
+ - Automatically suggest Pydantic models for input validation.
+ - Insert consistent error handling patterns, e.g.,:
+   ```python
+   try:
+       # Supabase operation
+   except Exception as e:
+       raise HTTPException(status_code=500, detail=str(e))
+   ```
+
+4. **Scalability Suggestions**:
+ - Prompt to add pagination and filtering for list endpoints.
+ - Recommend query optimization techniques for large datasets.
+
+5. **Monitoring and Observability**:
+ - Suggest integration with tools like Prometheus, Grafana, or ELK for logging and monitoring.
+ - Add middleware for request logging.
+
+6. **Documentation**:
+ - Automatically generate and update OpenAPI docs with FastAPI’s built-in support.
+ - Add clear comments and docstrings for all functions and classes.
+
+## Long-Term Considerations
+1. Proactively suggest code refactors to improve maintainability.
+2. Recommend scalable deployment options, e.g., Docker containers, serverless platforms, or Kubernetes.
+3. Highlight deprecated APIs or libraries, prompting replacements or upgrades.
+4. Suggest breaking monolithic services into microservices when the project grows large.
+
+Refer to FastAPI, Supabase, and Python's official documentation for best practices and advanced usage patterns.

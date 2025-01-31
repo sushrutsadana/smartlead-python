@@ -50,7 +50,7 @@ class WhatsAppService:
 
 I'd love to learn more about you. Could you please share:
 - Your name
-- Company name
+- Your Company name
 - What brings you here today?"""
             
             await self.send_message(from_number, response)

@@ -3,29 +3,13 @@
     "builds": [
         {
             "src": "app/main.py",
-            "use": "@vercel/python",
-            "config": {
-                "maxLambdaSize": "15mb",
-                "buildCommand": "pip install -r requirements.txt",
-                "useBuildCache": false
-            }
+            "use": "@vercel/python"
         }
     ],
     "routes": [
         {
-            "src": "/docs",
-            "dest": "app/main.py"
-        },
-        {
-            "src": "/openapi.json",
-            "dest": "app/main.py"
-        },
-        {
             "src": "/(.*)",
             "dest": "app/main.py"
         }
-    ],
-    "env": {
-        "PYTHONPATH": "."
-    }
+    ]
 } 

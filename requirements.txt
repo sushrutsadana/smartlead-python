@@ -1,11 +1,26 @@
+# FastAPI and server
 fastapi==0.109.2
 uvicorn==0.27.1
+
+# Database
 supabase==1.2.0
+
+# Validation and settings
+pydantic>=2.4.2
 pydantic[email]==2.6.1
 pydantic-settings==2.1.0
 email-validator==2.1.0.post1
+
+# HTTP and requests
 requests==2.31.0
+
+# Google API packages
 google-auth-oauthlib==1.0.0
 google-auth-httplib2==0.1.0
 google-api-python-client==2.86.0
+google-oauth2-tool==0.0.3
+
+# AI Integration
 anthropic==0.8.1
+
+twilio

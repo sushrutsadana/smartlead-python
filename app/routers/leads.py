@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request, Header
+from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.exceptions import RequestValidationError
 from ..schemas.lead import LeadCreate, Activity
 from ..services.lead_service import LeadService
@@ -46,7 +46,7 @@ async def process_emails():
         return {"status": "success", "message": result}
     except Exception as e:
         logger.error(f"Error processing emails: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e)) 
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/{lead_id}/call")
 async def make_call_to_lead(lead_id: str):

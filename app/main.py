@@ -2,10 +2,11 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from supabase import create_client
-from .schemas.lead import LeadCreate, Activity, ActivityType
+from .schemas.lead import LeadCreate, Activity, ActivityType, LeadStatus
 from .services.lead_service import LeadService
 from .services.call_service import CallService
 from .services.email_processor import EmailProcessor
+from .routers import leads
 import logging
 import os
 from datetime import datetime
@@ -42,14 +43,17 @@ email_processor = EmailProcessor(lead_service)
 
 app = FastAPI(title="Smartlead CRM")
 
-# Basic CORS middleware
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # In production, replace with specific origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include routers
+app.include_router(leads.router, prefix="/api/leads", tags=["leads"])
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:

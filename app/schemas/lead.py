@@ -3,10 +3,18 @@ from typing import Optional
 from datetime import datetime
 from enum import Enum
 
+class LeadStatus(str, Enum):
+    NEW = "new"
+    QUALIFIED = "qualified"
+    CUSTOMER = "customer"
+    DISQUALIFIED = "disqualified"
+    REMARKET = "remarket"
+
 class ActivityType(str, Enum):
     EMAIL_SENT = "email_sent"
     CALL_MADE = "call_made"
     LEAD_CREATED = "lead_created"
+    STATUS_CHANGED = "status_changed"
 
 class LeadCreate(BaseModel):
     first_name: str
@@ -16,7 +24,7 @@ class LeadCreate(BaseModel):
     company_name: Optional[str] = None
     title: Optional[str] = None
     lead_source: str = "manual"
-    status: Optional[str] = "new"
+    status: LeadStatus = LeadStatus.NEW
 
 class Activity(BaseModel):
     activity_type: ActivityType

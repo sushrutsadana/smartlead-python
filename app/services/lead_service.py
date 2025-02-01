@@ -1,5 +1,5 @@
 from datetime import datetime
-from ..schemas.lead import LeadCreate, Activity, ActivityType
+from ..schemas.lead import LeadCreate, Activity, ActivityType, LeadStatus
 import logging
 
 logger = logging.getLogger(__name__)
@@ -47,4 +47,28 @@ class LeadService:
             return result.data[0]
         except Exception as e:
             logger.error(f"Error in log_activity: {str(e)}")
+            raise
+
+    async def update_lead_status(self, lead_id: str, new_status: LeadStatus) -> dict:
+        try:
+            # Update lead status
+            result = self.supabase.table("leads").update({
+                "status": new_status
+            }).eq("id", lead_id).execute()
+            
+            if not result.data:
+                raise Exception(f"Lead with ID {lead_id} not found")
+            
+            # Log status change activity
+            activity_data = {
+                "lead_id": lead_id,
+                "activity_type": ActivityType.STATUS_CHANGED,
+                "body": f"Lead status changed to {new_status}",
+                "activity_datetime": datetime.now().isoformat()
+            }
+            await self.log_activity(activity_data)
+            
+            return result.data[0]
+        except Exception as e:
+            logger.error(f"Error updating lead status: {str(e)}")
             raise 

@@ -164,11 +164,11 @@ class EmailProcessor:
                     logger.error(f"Error processing individual email: {str(e)}")
                     continue
 
-            return f"Successfully processed {processed_count} emails"
-
+            return f"Processed {processed_count} emails"
+            
         except Exception as e:
-            logger.error(f"Error in email processing: {str(e)}")
-            raise 
+            logger.error(f"Error in process_new_emails: {str(e)}")
+            raise
 
     async def process_email_content(self, email_content: str):
         client = Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))

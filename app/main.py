@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from supabase import create_client
@@ -6,7 +6,6 @@ from .schemas.lead import LeadCreate, Activity, ActivityType
 from .services.lead_service import LeadService
 from .services.call_service import CallService
 from .services.email_processor import EmailProcessor
-from .services.whatsapp_service import WhatsAppService
 import logging
 import os
 from datetime import datetime
@@ -40,21 +39,20 @@ except Exception as e:
 lead_service = LeadService(supabase)
 call_service = CallService()
 email_processor = EmailProcessor(lead_service)
-whatsapp_service = WhatsAppService()
 
-app = FastAPI(title="Smartlead CRM", version="1.0.0")
+app = FastAPI(title="Smartlead CRM")
 
-# Configure CORS
+# Basic CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Modify this in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 @app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.error(f"Error: {str(exc)}")
     return JSONResponse(
         status_code=500,
@@ -100,7 +98,7 @@ async def create_lead(lead: LeadCreate) -> dict:
         raise
 
 @app.post("/leads/{lead_id}/activities")
-async def create_activity(lead_id: str, activity: Activity):
+async def create_activity(lead_id: str, activity: Activity) -> dict:
     try:
         activity_data = activity.dict()
         activity_data["lead_id"] = lead_id
@@ -113,7 +111,7 @@ async def create_activity(lead_id: str, activity: Activity):
         raise
 
 @app.get("/leads/{lead_id}")
-async def get_lead(lead_id: str):
+async def get_lead(lead_id: str) -> dict:
     try:
         lead = await lead_service.get_lead(lead_id)
         return {"status": "success", "data": lead}
@@ -122,7 +120,7 @@ async def get_lead(lead_id: str):
         raise
 
 @app.post("/leads/{lead_id}/call")
-async def make_call_to_lead(lead_id: str):
+async def make_call_to_lead(lead_id: str) -> dict:
     try:
         # Get lead's information
         lead = await lead_service.get_lead(lead_id)
@@ -153,7 +151,7 @@ async def make_call_to_lead(lead_id: str):
         raise
 
 @app.post("/process-emails")
-async def process_emails():
+async def process_emails() -> dict:
     """Process new unread emails and create leads"""
     try:
         result = await email_processor.process_new_emails()
@@ -161,46 +159,3 @@ async def process_emails():
     except Exception as e:
         logger.error(f"Error processing emails: {str(e)}")
         raise
-
-@app.post("/leads/{lead_id}/whatsapp")
-async def send_whatsapp_to_lead(lead_id: str, background_tasks: BackgroundTasks):
-    """Send WhatsApp message to a lead"""
-    try:
-        # Get lead's information
-        lead = await lead_service.get_lead(lead_id)
-        if not lead.get('phone_number'):
-            raise HTTPException(status_code=400, detail="Lead has no phone number")
-
-        # Send WhatsApp message in the background
-        background_tasks.add_task(
-            whatsapp_service.send_message,
-            phone_number=lead['phone_number'],
-            first_name=lead['first_name'],
-            last_name=lead['last_name'],
-            company_name=lead.get('company_name', ''),
-            title=lead.get('title', '')
-        )
-
-        # Log activity
-        activity_data = {
-            "lead_id": lead_id,
-            "activity_type": ActivityType.WHATSAPP_SENT,
-            "body": "WhatsApp message initiated",
-            "activity_datetime": datetime.now().isoformat()
-        }
-        await lead_service.log_activity(activity_data)
-
-        return {"status": "success", "message": "WhatsApp message scheduled"}
-    except Exception as e:
-        logger.error(f"Error sending WhatsApp message: {str(e)}")
-        raise
-
-@app.post("/whatsapp/webhook")
-async def whatsapp_webhook(request: Request):
-    """Handle incoming WhatsApp webhook events"""
-    try:
-        body = await request.json()
-        return await whatsapp_service.handle_webhook(body)
-    except Exception as e:
-        logger.error(f"Error handling WhatsApp webhook: {str(e)}")
-        raise 

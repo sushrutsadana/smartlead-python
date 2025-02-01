@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from supabase import create_client
-from .schemas.lead import LeadCreate, Activity, ActivityType, LeadStatus
+from .schemas.lead import LeadCreate, Activity, ActivityType
 from .services.lead_service import LeadService
 from .services.call_service import CallService
 from .services.email_processor import EmailProcessor
@@ -50,9 +50,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Include routers
-app.include_router(leads.router, prefix="/api/leads", tags=["leads"])
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:

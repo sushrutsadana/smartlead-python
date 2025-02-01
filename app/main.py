@@ -6,7 +6,6 @@ from .schemas.lead import LeadCreate, Activity, ActivityType, LeadStatus
 from .services.lead_service import LeadService
 from .services.call_service import CallService
 from .services.email_processor import EmailProcessor
-from .routers import leads
 import logging
 import os
 from datetime import datetime
@@ -43,10 +42,10 @@ email_processor = EmailProcessor(lead_service)
 
 app = FastAPI(title="Smartlead CRM")
 
-# Configure CORS
+# Basic CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with specific origins
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

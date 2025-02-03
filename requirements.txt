@@ -15,9 +15,9 @@ email-validator==2.1.0.post1
 requests==2.31.0
 
 # Google API packages
-google-auth-oauthlib==1.0.0
-google-auth-httplib2==0.1.0
-google-api-python-client==2.86.0
+google-auth-oauthlib>=1.0.0
+google-auth-httplib2>=0.1.0
+google-api-python-client>=2.86.0
 google-oauth2-tool==0.0.3
 
 # AI Integration

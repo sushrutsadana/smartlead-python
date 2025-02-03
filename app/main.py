@@ -6,10 +6,14 @@ from .schemas.lead import LeadCreate, Activity, ActivityType
 from .services.lead_service import LeadService
 from .services.call_service import CallService
 from .services.email_processor import EmailProcessor
+from .services.email_service import EmailService
+from .services.whatsapp_service import WhatsAppService
 import logging
 import os
 from datetime import datetime
 from dotenv import load_dotenv
+from pydantic import BaseModel
+from typing import Optional
 
 # Load environment variables
 load_dotenv()
@@ -35,10 +39,12 @@ except Exception as e:
     logger.error(f"Failed to initialize Supabase client: {str(e)}")
     raise
 
-# Initialize services
+# Initialize all services
 lead_service = LeadService(supabase)
 call_service = CallService()
 email_processor = EmailProcessor(lead_service)
+email_service = EmailService()
+whatsapp_service = WhatsAppService()
 
 app = FastAPI(title="Smartlead CRM")
 
@@ -50,6 +56,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Request model for email
+class EmailRequest(BaseModel):
+    subject: str
+    body: str
+    cc: Optional[str] = None
+    bcc: Optional[str] = None
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
@@ -158,4 +171,38 @@ async def process_emails() -> dict:
         return {"status": "success", "message": result}
     except Exception as e:
         logger.error(f"Error processing emails: {str(e)}")
+        raise
+
+@app.post("/leads/{lead_id}/send-email")
+async def send_email_to_lead(lead_id: str, email_request: EmailRequest) -> dict:
+    try:
+        # Get lead's email from database
+        lead = await lead_service.get_lead(lead_id)
+        if not lead:
+            raise HTTPException(status_code=404, detail=f"Lead with ID {lead_id} not found")
+        
+        if not lead.get('email'):
+            raise HTTPException(status_code=400, detail="Lead has no email address")
+
+        # Send email
+        result = await email_service.send_email(
+            to_email=lead['email'],
+            subject=email_request.subject,
+            body=email_request.body,
+            cc=email_request.cc,
+            bcc=email_request.bcc
+        )
+
+        # Log activity
+        activity_data = {
+            "lead_id": lead_id,
+            "activity_type": "email_sent",
+            "body": f"Email sent: {email_request.subject}",
+            "activity_datetime": datetime.now().isoformat()
+        }
+        await lead_service.log_activity(activity_data)
+
+        return {"status": "success", "data": result}
+    except Exception as e:
+        logger.error(f"Error sending email: {str(e)}")
         raise

@@ -31,11 +31,21 @@ class LeadService:
             logger.error(f"Error creating lead: {str(e)}")
             raise
 
+    async def get_leads(self) -> list:
+        """Get all leads"""
+        try:
+            result = self.supabase.table("leads").select("*").execute()
+            return result.data
+        except Exception as e:
+            logger.error(f"Error getting leads: {str(e)}")
+            raise
+
     async def get_lead(self, lead_id: str) -> dict:
+        """Get a specific lead"""
         try:
             result = self.supabase.table("leads").select("*").eq("id", lead_id).execute()
             if not result.data:
-                raise Exception(f"Lead with ID {lead_id} not found")
+                return None
             return result.data[0]
         except Exception as e:
             logger.error(f"Error getting lead: {str(e)}")

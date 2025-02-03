@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from supabase import create_client
@@ -7,7 +7,6 @@ from .services.lead_service import LeadService
 from .services.call_service import CallService
 from .services.email_processor import EmailProcessor
 from .services.email_service import EmailService
-from .services.whatsapp_service import WhatsAppService
 import logging
 import os
 from datetime import datetime
@@ -44,7 +43,6 @@ lead_service = LeadService(supabase)
 call_service = CallService()
 email_processor = EmailProcessor(lead_service)
 email_service = EmailService()
-whatsapp_service = WhatsAppService()
 
 app = FastAPI(title="Smartlead CRM")
 
@@ -206,3 +204,17 @@ async def send_email_to_lead(lead_id: str, email_request: EmailRequest) -> dict:
     except Exception as e:
         logger.error(f"Error sending email: {str(e)}")
         raise
+
+# After load_dotenv()
+required_env_vars = [
+    'SUPABASE_URL',
+    'SUPABASE_KEY',
+    'GMAIL_CLIENT_ID',
+    'GMAIL_CLIENT_SECRET',
+    'GMAIL_REFRESH_TOKEN',
+    'GMAIL_USER'
+]
+
+missing_vars = [var for var in required_env_vars if not os.getenv(var)]
+if missing_vars:
+    raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")

@@ -13,9 +13,11 @@ class LeadStatus(str, Enum):
 class ActivityType(str, Enum):
     EMAIL_SENT = "email_sent"
     CALL_MADE = "call_made"
+    CALL_COMPLETED = "call_completed"
     LEAD_CREATED = "lead_created"
     STATUS_CHANGED = "status_changed"
     WHATSAPP_MESSAGE = "whatsapp_message"
+    CALL_ANALYZED = "call_analyzed"
 
 class LeadCreate(BaseModel):
     first_name: str

@@ -1,4 +1,6 @@
 from pydantic_settings import BaseSettings
+from pydantic import HttpUrl, SecretStr
+from pydantic import validator
 
 class Settings(BaseSettings):
     # Supabase settings
@@ -15,7 +17,8 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str
     
     # Bland AI settings
-    BLAND_AI_API_KEY: str  # Remove BLAND_AI_ORG_ID
+    BLAND_AI_API_KEY: str
+    BLAND_AI_WEBHOOK_URL: str
     
     # Twilio/WhatsApp settings
     TWILIO_ACCOUNT_SID: str
@@ -25,5 +28,11 @@ class Settings(BaseSettings):
     
     class Config:
         env_file = ".env"
+
+    @validator('BLAND_AI_WEBHOOK_URL')
+    def validate_webhook_url(cls, v):
+        if not v.startswith('https://'):
+            raise ValueError('Webhook URL must use HTTPS')
+        return v
 
 settings = Settings() 

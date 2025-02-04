@@ -7,6 +7,8 @@ from .services.lead_service import LeadService
 from .services.call_service import CallService
 from .services.email_processor import EmailProcessor
 from .services.email_service import EmailService
+from .services.whatsapp_sender import WhatsAppSender
+from .services.whatsapp_processor import WhatsAppProcessor
 import logging
 import os
 from datetime import datetime
@@ -43,6 +45,8 @@ lead_service = LeadService(supabase)
 call_service = CallService()
 email_processor = EmailProcessor(lead_service)
 email_service = EmailService()
+whatsapp_sender = WhatsAppSender()
+whatsapp_processor = WhatsAppProcessor(lead_service)
 
 app = FastAPI(title="Smartlead CRM")
 
@@ -54,6 +58,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Import routers after app initialization
+from .routers import leads
+app.include_router(leads.router)
 
 # Request model for email
 class EmailRequest(BaseModel):
@@ -218,3 +226,10 @@ required_env_vars = [
 missing_vars = [var for var in required_env_vars if not os.getenv(var)]
 if missing_vars:
     raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
+
+# Add to dependencies
+def get_whatsapp_sender():
+    return whatsapp_sender
+
+def get_whatsapp_processor():
+    return whatsapp_processor

@@ -5,8 +5,6 @@ from supabase import create_client
 import logging
 import os
 from dotenv import load_dotenv
-import uuid
-import logging.config
 from datetime import datetime
 
 # Load environment variables
@@ -22,7 +20,7 @@ try:
     supabase_key = os.environ.get("SUPABASE_KEY")
     
     if not supabase_url or not supabase_key:
-        raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set in environment variables")
+        raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set")
         
     supabase = create_client(
         supabase_url=supabase_url,
@@ -35,7 +33,7 @@ except Exception as e:
 
 app = FastAPI(title="Smartlead CRM")
 
-# Basic CORS middleware
+# Basic CORS middleware - keep it permissive for now
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -48,8 +46,9 @@ app.add_middleware(
 from .routers import leads
 app.include_router(leads.router)
 
+# Simple error handler
 @app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Error: {str(exc)}")
     return JSONResponse(
         status_code=500,
@@ -57,14 +56,13 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     )
 
 @app.get("/")
-async def root() -> dict:
+async def root():
     return {"message": "API is running"}
 
 @app.get("/health")
 async def health_check():
     return {
         "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
         "version": "1.0.0"
     }
 
@@ -82,19 +80,3 @@ required_env_vars = [
 missing_vars = [var for var in required_env_vars if not os.getenv(var)]
 if missing_vars:
     raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
-
-# Add error handlers
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request, exc):
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"status": "error", "message": str(exc.detail)}
-    )
-
-@app.middleware("http")
-async def add_request_id(request: Request, call_next):
-    request_id = str(uuid.uuid4())
-    request.state.request_id = request_id
-    response = await call_next(request)
-    response.headers["X-Request-ID"] = request_id
-    return response

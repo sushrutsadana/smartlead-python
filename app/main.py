@@ -74,7 +74,11 @@ required_env_vars = [
     'GMAIL_CLIENT_SECRET',
     'GMAIL_REFRESH_TOKEN',
     'GMAIL_USER',
-    'BLAND_AI_API_KEY'
+    'BLAND_AI_API_KEY',
+    'BLAND_AI_WEBHOOK_URL',
+    'TWILIO_ACCOUNT_SID',
+    'TWILIO_AUTH_TOKEN',
+    'TWILIO_WHATSAPP_NUMBER'
 ]
 
 missing_vars = [var for var in required_env_vars if not os.getenv(var)]

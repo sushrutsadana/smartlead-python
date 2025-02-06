@@ -439,22 +439,35 @@ async def call_webhook(
         # Extract relevant info from webhook
         call_id = data.get('call_id')
         status = data.get('status')
-        duration = data.get('corrected_duration')  # Use corrected_duration from webhook
+        duration = data.get('corrected_duration')
         transcript = data.get('concatenated_transcript')
         recording_url = data.get('recording_url')
-        lead_id = data.get('metadata', {}).get('lead_id')
+        disposition = data.get('disposition_tag')
+        call_ended_by = data.get('call_ended_by')
+        
+        # Get metadata
+        metadata = data.get('metadata', {})
+        lead_id = metadata.get('lead_id')
+        first_name = metadata.get('first_name')
+        company_name = metadata.get('company_name')
         
         if not lead_id:
             logger.error("No lead_id found in call metadata")
             raise HTTPException(status_code=400, detail="No lead_id in call metadata")
 
-        # First log the call completion
+        # Log call completion with more details
         activity_data = {
             "lead_id": lead_id,
             "activity_type": ActivityType.CALL_COMPLETED,
             "body": f"""Call completed:
 Status: {status}
 Duration: {duration} seconds
+Disposition: {disposition or 'Unknown'}
+Call Ended By: {call_ended_by or 'Unknown'}
+To: {data.get('to')}
+From: {data.get('from')}
+Started At: {data.get('started_at')}
+Ended At: {data.get('end_at')}
 Transcript: {transcript[:500] if transcript else 'No transcript available'}...
 Recording: {recording_url}"""
         }
@@ -467,16 +480,19 @@ Recording: {recording_url}"""
                 analysis = await call_service.analyze_call(call_id)
                 
                 if analysis and analysis.get('answers'):
-                    # Log analysis as activity
+                    # Log analysis as activity with more context
                     analysis_activity = {
                         "lead_id": lead_id,
                         "activity_type": ActivityType.CALL_ANALYZED,
-                        "body": f"""Call Analysis Summary:
-• Interest in Demo: {analysis['answers'][0] if len(analysis['answers']) > 0 else 'Unknown'}
-• Objections: {analysis['answers'][1] if len(analysis['answers']) > 1 else 'None mentioned'}
-• Timeline: {analysis['answers'][2] if len(analysis['answers']) > 2 else 'Not discussed'}
-• Sentiment: {analysis['answers'][3] if len(analysis['answers']) > 3 else 'neutral'}
-• Next Steps: {analysis['answers'][4] if len(analysis['answers']) > 4 else 'No specific next steps'}"""
+                        "body": f"""Call Analysis Summary for {first_name} at {company_name}:
+• Interest in Demo: {analysis['answers'][0] if analysis['answers'][0] is not None else 'Unknown'}
+• Objections: {analysis['answers'][1] if analysis['answers'][1] is not None else 'None mentioned'}
+• Timeline: {analysis['answers'][2] if analysis['answers'][2] is not None else 'Not discussed'}
+• Sentiment: {analysis['answers'][3] if analysis['answers'][3] is not None else 'neutral'}
+• Next Steps: {analysis['answers'][4] if analysis['answers'][4] is not None else 'No specific next steps'}
+• Disposition Tag: {disposition or 'Unknown'}
+• Call Duration: {duration} seconds
+• Credits Used: {analysis.get('credits_used', 0)}"""
                     }
                     await lead_service.log_activity(analysis_activity)
                     logger.info(f"Successfully analyzed call {call_id} for lead {lead_id}")

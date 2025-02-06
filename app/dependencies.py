@@ -82,3 +82,14 @@ def get_email_processor(lead_service = Depends(get_lead_service)):
             status_code=500,
             detail="Email processor initialization failed"
         )
+
+def get_calendly_service(lead_service = Depends(get_lead_service)):
+    try:
+        from .services.calendly_service import CalendlyService
+        return CalendlyService(lead_service)
+    except Exception as e:
+        logger.error(f"Failed to initialize CalendlyService: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Calendly service initialization failed"
+        )

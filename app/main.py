@@ -6,7 +6,6 @@ import logging
 import os
 from dotenv import load_dotenv
 from datetime import datetime
-from .services.calendly_service import get_calendly_service
 
 # Load environment variables
 load_dotenv()
@@ -34,7 +33,7 @@ except Exception as e:
 
 app = FastAPI(title="Smartlead CRM")
 
-# Basic CORS middleware - keep it permissive for now
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -47,7 +46,6 @@ app.add_middleware(
 from .routers import leads
 app.include_router(leads.router)
 
-# Simple error handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Error: {str(exc)}")
@@ -76,7 +74,8 @@ required_env_vars = [
     'GMAIL_REFRESH_TOKEN',
     'GMAIL_USER',
     'BLAND_AI_API_KEY',
-    'BLAND_AI_WEBHOOK_URL',
+    'CALENDLY_API_TOKEN',
+    'CALENDLY_WEBHOOK_URL',
     'TWILIO_ACCOUNT_SID',
     'TWILIO_AUTH_TOKEN',
     'TWILIO_WHATSAPP_NUMBER'
@@ -86,13 +85,17 @@ missing_vars = [var for var in required_env_vars if not os.getenv(var)]
 if missing_vars:
     raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
 
-@app.on_event("startup")
-async def startup_event():
+# Move Calendly setup to a separate function to avoid circular imports
+async def setup_calendly_webhook():
     try:
-        # Initialize Calendly webhook
+        from .dependencies import get_calendly_service
         calendly_service = get_calendly_service()
         await calendly_service.setup_webhook()
         logger.info("Calendly webhook setup completed")
     except Exception as e:
         logger.error(f"Error setting up Calendly webhook: {str(e)}")
         # Don't raise - allow app to start even if webhook setup fails
+
+@app.on_event("startup")
+async def startup_event():
+    await setup_calendly_webhook()

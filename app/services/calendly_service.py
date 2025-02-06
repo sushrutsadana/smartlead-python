@@ -15,9 +15,6 @@ class CalendlyService:
             'Content-Type': 'application/json'
         }
         self.lead_service = lead_service
-        self.api_key = os.getenv('CALENDLY_API_KEY')
-        self.organization = os.getenv('CALENDLY_ORGANIZATION')
-        self.webhook_signing_key = os.getenv('CALENDLY_WEBHOOK_SIGNING_KEY')
 
     async def setup_webhook(self) -> Dict:
         """
@@ -143,4 +140,6 @@ def get_calendly_service() -> CalendlyService:
     """
     Factory function to create CalendlyService instance
     """
-    return CalendlyService() 
+    from ..dependencies import get_lead_service
+    lead_service = get_lead_service()
+    return CalendlyService(lead_service) 

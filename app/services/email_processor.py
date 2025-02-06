@@ -6,7 +6,7 @@ import os
 import json
 import logging
 from typing import Dict
-from ..schemas.lead import LeadCreate
+from ..schemas.lead import LeadCreate, ActivityType
 from .lead_service import LeadService
 from anthropic import Anthropic
 
@@ -148,7 +148,18 @@ class EmailProcessor:
                     
                     # Create lead
                     lead = LeadCreate(**lead_data)
-                    await self.lead_service.create_lead(lead)
+                    created_lead = await self.lead_service.create_lead(lead)
+                    
+                    # Log email received activity
+                    activity_data = {
+                        "lead_id": created_lead['id'],
+                        "activity_type": ActivityType.EMAIL_RECEIVED,
+                        "body": f"""Email received:
+Subject: {decoded_email['subject']}
+From: {decoded_email['from']}
+Content: {decoded_email['body'][:500]}..."""
+                    }
+                    await self.lead_service.log_activity(activity_data)
                     
                     # Mark email as read
                     self.gmail.users().messages().modify(

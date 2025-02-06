@@ -93,52 +93,55 @@ class CallService:
     async def analyze_call(self, call_id: str) -> Dict:
         """Analyze a completed call using BlandAI's analysis endpoint"""
         try:
-            # Define specific questions for better analysis
+            # First check if call is completed
+            call_status = await self.get_call_status(call_id)
+            if call_status != "completed":
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Call {call_id} is not completed yet. Status: {call_status}"
+                )
+
+            url = f'{self.base_url}/calls/{call_id}/analyze'
+            logger.info(f"Analyzing call {call_id} at URL: {url}")
+            
+            # Format questions according to Bland AI docs
             data = {
-                "goal": "Analyze the sales call to determine lead interest, objections, and next steps",  # Required field
+                "goal": "Analyze the sales call to determine lead interest, objections, and next steps",
                 "questions": [
                     ["Did the lead express interest in scheduling a demo?", "boolean"],
                     ["What were the main objections or concerns?", "string"],
                     ["What is their timeline for implementation?", "string"],
-                    ["Overall sentiment of the call", "positive/negative/neutral"],
+                    ["Overall sentiment of the call", "string"],
                     ["Next steps discussed", "string"]
                 ]
             }
 
             response = requests.post(
-                f'{self.base_url}/calls/{call_id}/analyze',
+                url,
                 json=data,
                 headers=self.headers
             )
             
+            logger.info(f"Raw response: {response.text}")
             response.raise_for_status()
-            raw_analysis = response.json()
             
-            # Log the raw response for debugging
-            logger.info(f"Raw analysis response: {raw_analysis}")
-
-            # Create formatted analysis directly from raw response
-            formatted_analysis = {
-                "status": raw_analysis.get("status"),
-                "message": raw_analysis.get("message"),
-                "answers": {
-                    "interested_in_demo": raw_analysis.get("answers", [None])[0],
-                    "objections": raw_analysis.get("answers", [None, None])[1] or "None mentioned",
-                    "timeline": raw_analysis.get("answers", [None, None, None])[2] or "Not discussed",
-                    "sentiment": raw_analysis.get("answers", [None, None, None, None])[3] or "neutral",
-                    "next_steps": raw_analysis.get("answers", [None, None, None, None, None])[4] or "No specific next steps"
-                },
-                "call_details": {
-                    "call_id": call_id,
-                    "analysis_timestamp": datetime.now().isoformat(),
-                    "credits_used": raw_analysis.get("credits_used", 0)
-                }
-            }
-
-            logger.info(f"Formatted analysis: {formatted_analysis}")
-            return formatted_analysis
+            raw_analysis = response.json()
+            return raw_analysis
 
         except Exception as e:
             logger.error(f"Error analyzing call: {str(e)}")
-            logger.error(f"Full error details: ", exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def get_call_status(self, call_id: str) -> str:
+        """Get the current status of a call"""
+        try:
+            response = requests.get(
+                f'{self.base_url}/calls/{call_id}',
+                headers=self.headers
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data.get('status', 'unknown')
+        except Exception as e:
+            logger.error(f"Error getting call status: {str(e)}")
             raise

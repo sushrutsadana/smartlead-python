@@ -439,8 +439,8 @@ async def call_webhook(
         # Extract relevant info from webhook
         call_id = data.get('call_id')
         status = data.get('status')
-        duration = data.get('duration')
-        transcript = data.get('transcript')
+        duration = data.get('corrected_duration')  # Use corrected_duration from webhook
+        transcript = data.get('concatenated_transcript')
         recording_url = data.get('recording_url')
         lead_id = data.get('metadata', {}).get('lead_id')
         
@@ -448,38 +448,40 @@ async def call_webhook(
             logger.error("No lead_id found in call metadata")
             raise HTTPException(status_code=400, detail="No lead_id in call metadata")
 
-        # Log call completion
+        # First log the call completion
         activity_data = {
             "lead_id": lead_id,
             "activity_type": ActivityType.CALL_COMPLETED,
             "body": f"""Call completed:
 Status: {status}
 Duration: {duration} seconds
-Transcript: {transcript[:500]}...
+Transcript: {transcript[:500] if transcript else 'No transcript available'}...
 Recording: {recording_url}"""
         }
         await lead_service.log_activity(activity_data)
 
-        # If call is completed successfully, trigger analysis
-        if status == "completed":
+        # Only analyze if call is completed and has enough content
+        if status == "completed" and transcript:
             try:
                 # Analyze the call
                 analysis = await call_service.analyze_call(call_id)
                 
-                # Log analysis as activity
-                analysis_activity = {
-                    "lead_id": lead_id,
-                    "activity_type": ActivityType.CALL_ANALYZED,
-                    "body": f"""Call Analysis Summary:
-• Interest in Demo: {analysis['answers']['interested_in_demo']}
-• Objections: {analysis['answers']['objections']}
-• Timeline: {analysis['answers']['timeline']}
-• Sentiment: {analysis['answers']['sentiment']}
-• Next Steps: {analysis['answers']['next_steps']}"""
-                }
-                await lead_service.log_activity(analysis_activity)
-                
-                logger.info(f"Successfully analyzed call {call_id} for lead {lead_id}")
+                if analysis and analysis.get('answers'):
+                    # Log analysis as activity
+                    analysis_activity = {
+                        "lead_id": lead_id,
+                        "activity_type": ActivityType.CALL_ANALYZED,
+                        "body": f"""Call Analysis Summary:
+• Interest in Demo: {analysis['answers'][0] if len(analysis['answers']) > 0 else 'Unknown'}
+• Objections: {analysis['answers'][1] if len(analysis['answers']) > 1 else 'None mentioned'}
+• Timeline: {analysis['answers'][2] if len(analysis['answers']) > 2 else 'Not discussed'}
+• Sentiment: {analysis['answers'][3] if len(analysis['answers']) > 3 else 'neutral'}
+• Next Steps: {analysis['answers'][4] if len(analysis['answers']) > 4 else 'No specific next steps'}"""
+                    }
+                    await lead_service.log_activity(analysis_activity)
+                    logger.info(f"Successfully analyzed call {call_id} for lead {lead_id}")
+                else:
+                    logger.warning(f"Analysis returned no answers for call {call_id}")
                 
             except Exception as e:
                 logger.error(f"Error analyzing call: {str(e)}")

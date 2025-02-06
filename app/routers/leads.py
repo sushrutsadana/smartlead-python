@@ -123,37 +123,7 @@ async def create_activity(
 )
 async def make_call_to_lead(
     lead_id: str,
-    call_request: CallRequest = Body(..., 
-        examples={
-            "English Call": {
-                "summary": "Make a call in English",
-                "value": {
-                    "prompt": "You are calling to discuss their interest in our software solution. Ask about their current challenges and try to schedule a demo.",
-                    "language": "en",
-                    "voice": "josh",
-                    "max_duration": 12
-                }
-            },
-            "Spanish Call": {
-                "summary": "Make a call in Spanish",
-                "value": {
-                    "prompt": "Estás llamando para discutir su interés en nuestra solución de software. Pregunta sobre sus desafíos actuales e intenta programar una demostración.",
-                    "language": "es",
-                    "voice": "florian",
-                    "max_duration": 15
-                }
-            },
-            "Hindi Call": {
-                "summary": "Make a call in Hindi",
-                "value": {
-                    "prompt": "आप हमारे सॉफ्टवेयर समाधान में उनकी रुचि के बारे में चर्चा करने के लिए कॉल कर रहे हैं। उनकी वर्तमान चुनौतियों के बारे में पूछें और एक डेमो शेड्यूल करने का प्रयास करें।",
-                    "language": "hi",
-                    "voice": "nat",
-                    "max_duration": 10
-                }
-            }
-        }
-    ),
+    call_request: CallRequest = Body(...),
     lead_service = Depends(get_lead_service),
     call_service = Depends(get_call_service)
 ):
@@ -174,10 +144,10 @@ async def make_call_to_lead(
         # Get lead's information
         lead = await lead_service.get_lead(lead_id)
         if not lead.get('phone_number'):
-            raise HTTPException(
-                status_code=400, 
-                detail="Lead has no phone number"
-            )
+            raise HTTPException(status_code=400, detail="Lead has no phone number")
+
+        # Mark as contacted before making the call
+        await lead_service.mark_as_contacted(lead_id)
 
         # Make the call with custom prompt and language
         result = await call_service.make_call(
@@ -242,6 +212,9 @@ async def send_email_to_lead(
         
         if not lead.get('email'):
             raise HTTPException(status_code=400, detail="Lead has no email address")
+            
+        # Mark as contacted before sending email
+        await lead_service.mark_as_contacted(lead_id)
             
         # Send email
         result = await email_service.send_email(
@@ -356,6 +329,9 @@ async def send_whatsapp_to_lead(
         
         if not lead.get('phone_number'):
             raise HTTPException(status_code=400, detail="Lead has no phone number")
+            
+        # Mark as contacted before sending WhatsApp
+        await lead_service.mark_as_contacted(lead_id)
             
         # Format the phone number if needed
         phone_number = lead['phone_number']

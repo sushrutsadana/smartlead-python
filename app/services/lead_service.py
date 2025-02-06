@@ -91,4 +91,21 @@ class LeadService:
             return result.data
         except Exception as e:
             logger.error(f"Error getting leads by email: {str(e)}")
+            raise
+
+    async def mark_as_contacted(self, lead_id: str) -> dict:
+        """Mark a lead as contacted if they're in NEW status"""
+        try:
+            # Get current lead status
+            lead = await self.get_lead(lead_id)
+            
+            # Only update if status is NEW
+            if lead.get('status') == LeadStatus.NEW:
+                result = await self.update_lead_status(lead_id, LeadStatus.CONTACTED)
+                logger.info(f"Updated lead {lead_id} to CONTACTED status")
+                return result
+            return lead
+            
+        except Exception as e:
+            logger.error(f"Error marking lead as contacted: {str(e)}")
             raise 

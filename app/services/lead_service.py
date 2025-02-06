@@ -82,4 +82,13 @@ class LeadService:
             return result.data[0]
         except Exception as e:
             logger.error(f"Error updating lead status: {str(e)}")
+            raise
+
+    async def get_leads_by_email(self, email: str) -> list:
+        """Get leads by email address"""
+        try:
+            result = self.supabase.table("leads").select("*").eq("email", email).execute()
+            return result.data
+        except Exception as e:
+            logger.error(f"Error getting leads by email: {str(e)}")
             raise 

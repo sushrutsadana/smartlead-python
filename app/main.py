@@ -6,6 +6,7 @@ import logging
 import os
 from dotenv import load_dotenv
 from datetime import datetime
+from .services.calendly_service import get_calendly_service
 
 # Load environment variables
 load_dotenv()
@@ -84,3 +85,14 @@ required_env_vars = [
 missing_vars = [var for var in required_env_vars if not os.getenv(var)]
 if missing_vars:
     raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
+
+@app.on_event("startup")
+async def startup_event():
+    try:
+        # Initialize Calendly webhook
+        calendly_service = get_calendly_service()
+        await calendly_service.setup_webhook()
+        logger.info("Calendly webhook setup completed")
+    except Exception as e:
+        logger.error(f"Error setting up Calendly webhook: {str(e)}")
+        # Don't raise - allow app to start even if webhook setup fails

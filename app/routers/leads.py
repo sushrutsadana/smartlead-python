@@ -10,7 +10,8 @@ from ..dependencies import (
     get_whatsapp_processor,
     get_call_service,
     get_email_processor,
-    get_email_service
+    get_email_service,
+    get_calendly_service
 )
 from ..services.whatsapp_processor import WhatsAppProcessor
 from ..services.email_processor import EmailProcessor
@@ -524,4 +525,18 @@ async def analyze_call_for_lead(
         
     except Exception as e:
         logger.error(f"Error analyzing call: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/calendly/webhook")
+async def calendly_webhook(
+    request: Request,
+    calendly_service = Depends(get_calendly_service)
+):
+    """Handle Calendly webhook events"""
+    try:
+        payload = await request.json()
+        logger.info(f"Received Calendly webhook: {payload}")
+        return await calendly_service.handle_webhook(payload)
+    except Exception as e:
+        logger.error(f"Error in Calendly webhook: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

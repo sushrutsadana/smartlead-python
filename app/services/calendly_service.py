@@ -64,8 +64,23 @@ class CalendlyService:
     async def handle_webhook(self, payload: Dict) -> Dict:
         """Handle Calendly webhook events"""
         try:
+            # Handle both nested and flat structures
             event_type = payload.get('event')
-            invitee_email = payload.get('payload', {}).get('email')
+            
+            # If payload is flat, restructure it
+            if 'email' in payload:
+                payload_data = {
+                    'email': payload.get('email'),
+                    'start_time': payload.get('start_time'),
+                    'end_time': payload.get('end_time'),
+                    'event_type': {
+                        'name': payload.get('name')
+                    }
+                }
+            else:
+                payload_data = payload.get('payload', {})
+            
+            invitee_email = payload_data.get('email')
             
             if not invitee_email:
                 raise ValueError("No email found in webhook payload")
@@ -86,14 +101,13 @@ class CalendlyService:
                 )
                 
                 # Log meeting scheduled activity
-                meeting_details = payload.get('payload', {})
                 activity_data = {
                     "lead_id": lead['id'],
                     "activity_type": ActivityType.MEETING_SCHEDULED,
                     "body": f"""Meeting scheduled:
-Start time: {meeting_details.get('start_time')}
-End time: {meeting_details.get('end_time')}
-Event type: {meeting_details.get('event_type', {}).get('name')}
+Start time: {payload_data.get('start_time')}
+End time: {payload_data.get('end_time')}
+Event type: {payload_data.get('event_type', {}).get('name')}
 """
                 }
                 await self.lead_service.log_activity(activity_data)
@@ -103,7 +117,7 @@ Event type: {meeting_details.get('event_type', {}).get('name')}
                 activity_data = {
                     "lead_id": lead['id'],
                     "activity_type": ActivityType.MEETING_CANCELED,
-                    "body": f"Meeting canceled: {payload.get('payload', {}).get('cancel_reason', 'No reason provided')}"
+                    "body": f"Meeting canceled: {payload_data.get('cancel_reason', 'No reason provided')}"
                 }
                 await self.lead_service.log_activity(activity_data)
             

@@ -59,11 +59,18 @@ async def receive_webhook(
         body = await request.json()
         logger.info(f"Received Meta webhook: {body}")
         
-        # Meta sends a different structure than Twilio
         # Extract entry and messaging data
         entries = body.get('entry', [])
         
         for entry in entries:
+            # Determine if this is from a Facebook Page or WhatsApp
+            # Facebook Page entries have 'messaging', WhatsApp has 'changes'
+            is_messenger = 'messaging' in entry
+            
+            # Set the appropriate activity type
+            activity_type = ActivityType.MESSENGER_MESSAGE if is_messenger else ActivityType.WHATSAPP_MESSAGE
+            platform_name = "Facebook Messenger" if is_messenger else "WhatsApp"
+            
             messaging = entry.get('messaging', [])
             for message_event in messaging:
                 sender_id = message_event.get('sender', {}).get('id')
@@ -73,7 +80,7 @@ async def receive_webhook(
                 message = message_event.get('message', {})
                 message_text = message.get('text', '')
                 
-                logger.info(f"Received message: {message_text} from {sender_id}")
+                logger.info(f"Received {platform_name} message: {message_text} from {sender_id}")
                 
                 # Check if we have a lead with this ID already
                 existing_leads = await lead_service.get_leads_by_meta_id(sender_id)
@@ -83,8 +90,8 @@ async def receive_webhook(
                     lead_id = existing_leads[0]['id']
                     activity_data = {
                         "lead_id": lead_id,
-                        "activity_type": ActivityType.WHATSAPP_MESSAGE,
-                        "body": f"Meta message received: {message_text}"
+                        "activity_type": activity_type,
+                        "body": f"{platform_name} message received: {message_text}"
                     }
                     await lead_service.log_activity(activity_data)
                     
@@ -100,7 +107,7 @@ async def receive_webhook(
                         last_name=user_info.get('last_name', 'User'),
                         email=f"{sender_id}@placeholder.com",  # Placeholder email
                         meta_id=sender_id,
-                        lead_source="meta"
+                        lead_source=platform_name.lower()  # Use platform as source
                     )
                     
                     # Create the lead
@@ -109,11 +116,11 @@ async def receive_webhook(
                     # Log activity
                     activity_data = {
                         "lead_id": new_lead['id'],
-                        "activity_type": ActivityType.WHATSAPP_MESSAGE,
-                        "body": f"First Meta message received: {message_text}"
+                        "activity_type": activity_type,
+                        "body": f"First {platform_name} message received: {message_text}"
                     }
                     await lead_service.log_activity(activity_data)
-        
+                    
         # Meta expects a 200 OK response to acknowledge receipt
         return {"status": "success"}
         

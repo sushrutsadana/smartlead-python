@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi.responses import PlainTextResponse
 import logging
 from typing import Dict
 import os
@@ -33,7 +34,7 @@ async def verify_webhook(request: Request):
         if mode == 'subscribe' and token == META_VERIFY_TOKEN:
             logger.info("Webhook verification successful")
             # Return the challenge as plain text
-            return challenge
+            return PlainTextResponse(challenge)
         else:
             logger.warning("Webhook verification failed: invalid token or mode")
             raise HTTPException(status_code=403, detail="Verification failed")

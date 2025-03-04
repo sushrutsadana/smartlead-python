@@ -3,7 +3,8 @@ from fastapi.responses import PlainTextResponse
 import logging
 from typing import Dict
 import os
-from ..schemas.lead import ActivityType
+import requests
+from ..schemas.lead import ActivityType, LeadCreate
 from ..dependencies import get_lead_service
 
 # Set up logging
@@ -75,7 +76,6 @@ async def receive_webhook(
                 logger.info(f"Received message: {message_text} from {sender_id}")
                 
                 # Check if we have a lead with this ID already
-                # You may want to implement a get_lead_by_meta_id function
                 existing_leads = await lead_service.get_leads_by_meta_id(sender_id)
                 
                 if existing_leads:
@@ -87,17 +87,21 @@ async def receive_webhook(
                         "body": f"Meta message received: {message_text}"
                     }
                     await lead_service.log_activity(activity_data)
+                    
+                    # Mark as contacted 
+                    await lead_service.mark_as_contacted(lead_id)
                 else:
-                    # Create a new lead
-                    # Typically you'd want to get more info via the Meta Graph API
-                    # But here's a simple implementation
-                    lead_data = {
-                        "first_name": "Meta",  # Placeholder
-                        "last_name": "User",   # Placeholder
-                        "meta_id": sender_id,  # Store the Meta ID
-                        "lead_source": "meta",
-                        "email": f"{sender_id}@placeholder.com"  # Placeholder
-                    }
+                    # Try to get user info from Meta
+                    user_info = await get_user_info(sender_id)
+                    
+                    # Create a LeadCreate model instance
+                    lead_data = LeadCreate(
+                        first_name=user_info.get('first_name', 'Meta'),
+                        last_name=user_info.get('last_name', 'User'),
+                        email=f"{sender_id}@placeholder.com",  # Placeholder email
+                        meta_id=sender_id,
+                        lead_source="meta"
+                    )
                     
                     # Create the lead
                     new_lead = await lead_service.create_lead(lead_data)
@@ -116,4 +120,24 @@ async def receive_webhook(
     except Exception as e:
         logger.error(f"Error processing Meta webhook: {str(e)}")
         # Still return 200 to Meta to prevent retries
-        return {"status": "error", "message": str(e)} 
+        return {"status": "error", "message": str(e)}
+
+async def get_user_info(user_id: str) -> Dict:
+    """Get user information from Meta Graph API"""
+    try:
+        if not PAGE_ACCESS_TOKEN:
+            logger.warning("No PAGE_ACCESS_TOKEN available, using placeholder user info")
+            return {"first_name": "Meta", "last_name": "User"}
+            
+        url = f"https://graph.facebook.com/{user_id}?fields=first_name,last_name,profile_pic&access_token={PAGE_ACCESS_TOKEN}"
+        response = requests.get(url)
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            logger.warning(f"Failed to get user info: {response.text}")
+            return {"first_name": "Meta", "last_name": "User"}
+            
+    except Exception as e:
+        logger.error(f"Error getting user info: {str(e)}")
+        return {"first_name": "Meta", "last_name": "User"} 

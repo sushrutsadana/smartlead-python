@@ -80,7 +80,8 @@ required_env_vars = [
     'TWILIO_ACCOUNT_SID',
     'TWILIO_AUTH_TOKEN',
     'TWILIO_WHATSAPP_NUMBER',
-    'META_VERIFY_TOKEN'
+    'META_VERIFY_TOKEN',
+    'META_PAGE_ACCESS_TOKEN'
 ]
 
 missing_vars = [var for var in required_env_vars if not os.getenv(var)]

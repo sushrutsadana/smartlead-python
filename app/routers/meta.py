@@ -11,8 +11,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/meta", tags=["meta"])
 
-# Verification token - should be set as environment variable
+# Get environment variables
 META_VERIFY_TOKEN = os.environ.get("META_VERIFY_TOKEN", "your_verification_token")
+PAGE_ACCESS_TOKEN = os.environ.get("META_PAGE_ACCESS_TOKEN", "")
 
 @router.get("/webhook")
 async def verify_webhook(request: Request):

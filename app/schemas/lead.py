@@ -31,6 +31,7 @@ class LeadCreate(BaseModel):
     phone_number: Optional[str] = None
     company_name: Optional[str] = None
     title: Optional[str] = None
+    meta_id: Optional[str] = None
     lead_source: str = "manual"
     status: LeadStatus = LeadStatus.NEW
 

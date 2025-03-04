@@ -108,4 +108,13 @@ class LeadService:
             
         except Exception as e:
             logger.error(f"Error marking lead as contacted: {str(e)}")
+            raise
+
+    async def get_leads_by_meta_id(self, meta_id: str) -> list:
+        """Get leads by Meta messaging ID"""
+        try:
+            result = self.supabase.table("leads").select("*").eq("meta_id", meta_id).execute()
+            return result.data
+        except Exception as e:
+            logger.error(f"Error getting leads by Meta ID: {str(e)}")
             raise 

@@ -45,7 +45,7 @@ app.add_middleware(
 # Import routers after app initialization
 from .routers import leads, meta
 app.include_router(leads.router)
-app.include_router(meta.router, prefix="")
+app.include_router(meta.router)
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):

@@ -95,8 +95,8 @@ async def receive_webhook(
                     }
                     await lead_service.log_activity(activity_data)
                     
-                    # Mark as contacted 
-                    await lead_service.mark_as_contacted(lead_id)
+                    # Remove the automatic status change for inbound messages
+                    # await lead_service.mark_as_contacted(lead_id)
                 else:
                     # Try to get user info from Meta
                     user_info = await get_user_info(sender_id)

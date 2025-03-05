@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     TWILIO_WHATSAPP_NUMBER: str
     TWILIO_WEBHOOK_URL: str
     
+    # Google OAuth settings
+    GOOGLE_CLIENT_ID: str
+    GOOGLE_CLIENT_SECRET: str
+    
     class Config:
         env_file = ".env"
 

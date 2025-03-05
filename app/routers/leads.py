@@ -31,6 +31,7 @@ class EmailRequest(BaseModel):
     body: str
     cc: Optional[str] = None
     bcc: Optional[str] = None
+    from_email: Optional[str] = None  # Add this field
 
 # Option 1: Accept JSON body
 class WhatsAppMessage(BaseModel):
@@ -196,40 +197,42 @@ async def process_emails(
         logger.error(f"Error processing emails: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/{lead_id}/send-email")
+@router.post("/{lead_id}/email")
 async def send_email_to_lead(
     lead_id: str,
     email_request: EmailRequest,
     lead_service = Depends(get_lead_service),
-    email_service: EmailService = Depends(get_email_service)
+    email_service = Depends(get_email_service)
 ):
     """Send an email to a lead"""
     try:
-        # Get lead details
+        # Get lead information
         lead = await lead_service.get_lead(lead_id)
-        if not lead:
-            raise HTTPException(status_code=404, detail="Lead not found")
-        
         if not lead.get('email'):
             raise HTTPException(status_code=400, detail="Lead has no email address")
             
-        # Mark as contacted before sending email
+        # Mark lead as contacted
         await lead_service.mark_as_contacted(lead_id)
-            
-        # Send email
+        
+        # Send the email using the optional from_email
         result = await email_service.send_email(
             to_email=lead['email'],
             subject=email_request.subject,
             body=email_request.body,
             cc=email_request.cc,
-            bcc=email_request.bcc
+            bcc=email_request.bcc,
+            from_email=email_request.from_email
         )
         
-        # Log activity
+        # Log the email activity
         activity_data = {
             "lead_id": lead_id,
             "activity_type": ActivityType.EMAIL_SENT,
-            "body": f"Email sent: {email_request.subject}"
+            "body": f"""Email sent:
+Subject: {email_request.subject}
+To: {lead['email']}
+From: {result.get('from')}
+Content: {email_request.body[:500]}..."""
         }
         await lead_service.log_activity(activity_data)
         

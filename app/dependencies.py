@@ -53,9 +53,9 @@ def get_whatsapp_processor(lead_service = Depends(get_lead_service)):
             detail="WhatsApp processor initialization failed"
         )
 
-def get_email_service():
+def get_email_service(supabase = Depends(get_supabase)):
     try:
-        return EmailService()
+        return EmailService(supabase)
     except Exception as e:
         logger.error(f"Failed to initialize EmailService: {str(e)}")
         raise HTTPException(

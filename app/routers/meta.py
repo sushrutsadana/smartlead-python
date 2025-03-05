@@ -67,12 +67,20 @@ async def receive_webhook(
         entries = body.get('entry', [])
         
         for entry in entries:
-            # Determine the platform based on the entry structure
-            if 'messaging' in entry:
+            # First check the object type to distinguish between platforms
+            if object_type == 'instagram':
+                # This is an Instagram message - might have messaging or changes format
+                if 'messaging' in entry:
+                    await handle_instagram_message_with_messaging(entry, lead_service)
+                elif 'changes' in entry:
+                    await handle_changes_message(entry, object_type, lead_service)
+                else:
+                    logger.warning(f"Unknown Instagram entry format: {entry}")
+            elif 'messaging' in entry:
                 # This is Facebook Messenger
                 await handle_messenger_message(entry, lead_service)
             elif 'changes' in entry:
-                # This could be Instagram or WhatsApp
+                # This is likely WhatsApp
                 await handle_changes_message(entry, object_type, lead_service)
             else:
                 logger.warning(f"Unknown entry format: {entry}")
@@ -164,6 +172,32 @@ async def handle_instagram_message(value, lead_service):
         logger.error(f"Error handling Instagram message: {str(e)}")
         raise
 
+async def handle_instagram_message_with_messaging(entry, lead_service):
+    """Handle Instagram messages that use the messaging array format"""
+    try:
+        messaging = entry.get('messaging', [])
+        for message_event in messaging:
+            sender_id = message_event.get('sender', {}).get('id')
+            recipient_id = message_event.get('recipient', {}).get('id')
+            
+            # Get the message content
+            message = message_event.get('message', {})
+            message_text = message.get('text', '')
+            
+            logger.info(f"Received Instagram message (messaging format): {message_text} from {sender_id}")
+            
+            # Process the message with Instagram platform name
+            await process_message(
+                sender_id=sender_id,
+                message_text=message_text,
+                platform_name="Instagram",
+                activity_type=ActivityType.MESSENGER_MESSAGE,  # We could create a new INSTAGRAM_MESSAGE type
+                lead_service=lead_service
+            )
+    except Exception as e:
+        logger.error(f"Error handling Instagram messaging: {str(e)}")
+        raise
+
 async def process_message(sender_id, message_text, platform_name, activity_type, lead_service):
     """Process a message regardless of platform source"""
     try:
@@ -215,13 +249,33 @@ async def process_message(sender_id, message_text, platform_name, activity_type,
 async def get_user_info(user_id: str, platform: str = "Facebook") -> Dict:
     """Get user information from Meta Graph API"""
     try:
+        # Default info to return if we can't get real data
+        default_info = {"first_name": platform, "last_name": "User"}
+        
         # Use different tokens based on platform
         token = IG_TOKEN if platform.lower() == "instagram" else PAGE_ACCESS_TOKEN
         
         if not token:
             logger.warning(f"No token available for {platform}, using placeholder user info")
-            return {"first_name": platform, "last_name": "User"}
+            return default_info
+        
+        # For Instagram, we need a different approach to get user info
+        if platform.lower() == "instagram":
+            # Try to get Instagram username at minimum
+            url = f"https://graph.facebook.com/v18.0/{user_id}?fields=username&access_token={token}"
+            try:
+                response = requests.get(url)
+                if response.status_code == 200 and "username" in response.json():
+                    username = response.json().get("username", "")
+                    if username:
+                        return {"first_name": username, "last_name": "Instagram"}
+            except Exception as ig_err:
+                logger.warning(f"Error getting Instagram user info: {str(ig_err)}")
+                
+            # If we get here, we couldn't get username - use default
+            return default_info
             
+        # For Facebook, use standard approach  
         url = f"https://graph.facebook.com/{user_id}?fields=first_name,last_name,profile_pic&access_token={token}"
         response = requests.get(url)
         
@@ -229,8 +283,8 @@ async def get_user_info(user_id: str, platform: str = "Facebook") -> Dict:
             return response.json()
         else:
             logger.warning(f"Failed to get user info from {platform}: {response.text}")
-            return {"first_name": platform, "last_name": "User"}
+            return default_info
             
     except Exception as e:
         logger.error(f"Error getting user info: {str(e)}")
-        return {"first_name": platform, "last_name": "User"} 
+        return default_info 

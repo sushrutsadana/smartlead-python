@@ -16,6 +16,7 @@ router = APIRouter(prefix="/meta", tags=["meta"])
 META_VERIFY_TOKEN = os.environ.get("META_VERIFY_TOKEN", "your_verification_token")
 PAGE_ACCESS_TOKEN = os.environ.get("META_PAGE_ACCESS_TOKEN", "")
 IG_TOKEN = os.environ.get("META_IG_TOKEN", "")
+
 @router.get("/webhook")
 async def verify_webhook(request: Request):
     """
@@ -51,7 +52,7 @@ async def receive_webhook(
     lead_service = Depends(get_lead_service)
 ):
     """
-    Handle incoming messages from Meta (WhatsApp/Messenger).
+    Handle incoming messages from Meta platforms (Facebook Messenger, Instagram, WhatsApp).
     Creates leads and logs activities based on message content.
     """
     try:
@@ -59,68 +60,23 @@ async def receive_webhook(
         body = await request.json()
         logger.info(f"Received Meta webhook: {body}")
         
-        # Extract entry and messaging data
+        # Determine which platform the message is from
+        object_type = body.get('object', '')
+        
+        # Extract entry data
         entries = body.get('entry', [])
         
         for entry in entries:
-            # Determine if this is from a Facebook Page or WhatsApp
-            # Facebook Page entries have 'messaging', WhatsApp has 'changes'
-            is_messenger = 'messaging' in entry
-            
-            # Set the appropriate activity type
-            activity_type = ActivityType.MESSENGER_MESSAGE if is_messenger else ActivityType.WHATSAPP_MESSAGE
-            platform_name = "Facebook Messenger" if is_messenger else "WhatsApp"
-            
-            messaging = entry.get('messaging', [])
-            for message_event in messaging:
-                sender_id = message_event.get('sender', {}).get('id')
-                recipient_id = message_event.get('recipient', {}).get('id')
-                
-                # Get the message content
-                message = message_event.get('message', {})
-                message_text = message.get('text', '')
-                
-                logger.info(f"Received {platform_name} message: {message_text} from {sender_id}")
-                
-                # Check if we have a lead with this ID already
-                existing_leads = await lead_service.get_leads_by_meta_id(sender_id)
-                
-                if existing_leads:
-                    # Log activity for existing lead
-                    lead_id = existing_leads[0]['id']
-                    activity_data = {
-                        "lead_id": lead_id,
-                        "activity_type": activity_type,
-                        "body": f"{platform_name} message received: {message_text}"
-                    }
-                    await lead_service.log_activity(activity_data)
-                    
-                    # Remove the automatic status change for inbound messages
-                    # await lead_service.mark_as_contacted(lead_id)
-                else:
-                    # Try to get user info from Meta
-                    user_info = await get_user_info(sender_id)
-                    
-                    # Create a LeadCreate model instance
-                    lead_data = LeadCreate(
-                        first_name=user_info.get('first_name', 'Meta'),
-                        last_name=user_info.get('last_name', 'User'),
-                        email=f"{sender_id}@placeholder.com",  # Placeholder email
-                        meta_id=sender_id,
-                        lead_source=platform_name.lower()  # Use platform as source
-                    )
-                    
-                    # Create the lead
-                    new_lead = await lead_service.create_lead(lead_data)
-                    
-                    # Log activity
-                    activity_data = {
-                        "lead_id": new_lead['id'],
-                        "activity_type": activity_type,
-                        "body": f"First {platform_name} message received: {message_text}"
-                    }
-                    await lead_service.log_activity(activity_data)
-                    
+            # Determine the platform based on the entry structure
+            if 'messaging' in entry:
+                # This is Facebook Messenger
+                await handle_messenger_message(entry, lead_service)
+            elif 'changes' in entry:
+                # This could be Instagram or WhatsApp
+                await handle_changes_message(entry, object_type, lead_service)
+            else:
+                logger.warning(f"Unknown entry format: {entry}")
+        
         # Meta expects a 200 OK response to acknowledge receipt
         return {"status": "success"}
         
@@ -129,22 +85,152 @@ async def receive_webhook(
         # Still return 200 to Meta to prevent retries
         return {"status": "error", "message": str(e)}
 
-async def get_user_info(user_id: str) -> Dict:
+async def handle_messenger_message(entry, lead_service):
+    """Handle Facebook Messenger messages"""
+    try:
+        messaging = entry.get('messaging', [])
+        for message_event in messaging:
+            sender_id = message_event.get('sender', {}).get('id')
+            recipient_id = message_event.get('recipient', {}).get('id')
+            
+            # Get the message content
+            message = message_event.get('message', {})
+            message_text = message.get('text', '')
+            
+            logger.info(f"Received Facebook Messenger message: {message_text} from {sender_id}")
+            
+            # Process the message
+            await process_message(
+                sender_id=sender_id,
+                message_text=message_text,
+                platform_name="Facebook Messenger",
+                activity_type=ActivityType.MESSENGER_MESSAGE,
+                lead_service=lead_service
+            )
+    except Exception as e:
+        logger.error(f"Error handling Messenger message: {str(e)}")
+        raise
+
+async def handle_changes_message(entry, object_type, lead_service):
+    """Handle messages from the 'changes' array (Instagram or WhatsApp)"""
+    try:
+        changes = entry.get('changes', [])
+        for change in changes:
+            field = change.get('field', '')
+            value = change.get('value', {})
+            
+            # Determine if it's Instagram
+            is_instagram = (object_type == 'instagram' or 
+                           field == 'instagram_messages' or 
+                           'instagram' in field)
+            
+            if is_instagram:
+                # Handle Instagram message
+                await handle_instagram_message(value, lead_service)
+            else:
+                # Handle WhatsApp or other changes
+                logger.info(f"Received change event for field {field}: {value}")
+    except Exception as e:
+        logger.error(f"Error handling changes message: {str(e)}")
+        raise
+
+async def handle_instagram_message(value, lead_service):
+    """Handle Instagram direct messages"""
+    try:
+        # Instagram messages are usually in value.messages array
+        messages = value.get('messages', [])
+        
+        for msg in messages:
+            # Get sender info - structure might vary
+            sender_id = msg.get('from', {}).get('id')
+            if not sender_id:
+                # Try alternate path used by some IG webhooks
+                sender_id = msg.get('sender', {}).get('id')
+                
+            # Get message text
+            message_text = msg.get('text', '')
+            
+            logger.info(f"Received Instagram message: {message_text} from {sender_id}")
+            
+            # Process the message
+            await process_message(
+                sender_id=sender_id,
+                message_text=message_text,
+                platform_name="Instagram",
+                activity_type=ActivityType.MESSENGER_MESSAGE,  # Reuse messenger type or create a new one
+                lead_service=lead_service
+            )
+    except Exception as e:
+        logger.error(f"Error handling Instagram message: {str(e)}")
+        raise
+
+async def process_message(sender_id, message_text, platform_name, activity_type, lead_service):
+    """Process a message regardless of platform source"""
+    try:
+        if not sender_id:
+            logger.warning(f"No sender ID found in {platform_name} message")
+            return
+            
+        # Check if we have a lead with this ID already
+        existing_leads = await lead_service.get_leads_by_meta_id(sender_id)
+        
+        if existing_leads:
+            # Log activity for existing lead
+            lead_id = existing_leads[0]['id']
+            activity_data = {
+                "lead_id": lead_id,
+                "activity_type": activity_type,
+                "body": f"{platform_name} message received: {message_text}"
+            }
+            await lead_service.log_activity(activity_data)
+            
+            # We don't automatically mark as contacted for inbound messages anymore
+        else:
+            # Try to get user info from Meta
+            user_info = await get_user_info(sender_id, platform_name)
+            
+            # Create a LeadCreate model instance
+            lead_data = LeadCreate(
+                first_name=user_info.get('first_name', platform_name),
+                last_name=user_info.get('last_name', 'User'),
+                email=f"{sender_id}@placeholder.com",  # Placeholder email
+                meta_id=sender_id,
+                lead_source=platform_name.lower()  # Use platform as source
+            )
+            
+            # Create the lead
+            new_lead = await lead_service.create_lead(lead_data)
+            
+            # Log activity
+            activity_data = {
+                "lead_id": new_lead['id'],
+                "activity_type": activity_type,
+                "body": f"First {platform_name} message received: {message_text}"
+            }
+            await lead_service.log_activity(activity_data)
+    except Exception as e:
+        logger.error(f"Error processing message: {str(e)}")
+        raise
+
+async def get_user_info(user_id: str, platform: str = "Facebook") -> Dict:
     """Get user information from Meta Graph API"""
     try:
-        if not PAGE_ACCESS_TOKEN:
-            logger.warning("No PAGE_ACCESS_TOKEN available, using placeholder user info")
-            return {"first_name": "Meta", "last_name": "User"}
+        # Use different tokens based on platform
+        token = IG_TOKEN if platform.lower() == "instagram" else PAGE_ACCESS_TOKEN
+        
+        if not token:
+            logger.warning(f"No token available for {platform}, using placeholder user info")
+            return {"first_name": platform, "last_name": "User"}
             
-        url = f"https://graph.facebook.com/{user_id}?fields=first_name,last_name,profile_pic&access_token={PAGE_ACCESS_TOKEN}"
+        url = f"https://graph.facebook.com/{user_id}?fields=first_name,last_name,profile_pic&access_token={token}"
         response = requests.get(url)
         
         if response.status_code == 200:
             return response.json()
         else:
-            logger.warning(f"Failed to get user info: {response.text}")
-            return {"first_name": "Meta", "last_name": "User"}
+            logger.warning(f"Failed to get user info from {platform}: {response.text}")
+            return {"first_name": platform, "last_name": "User"}
             
     except Exception as e:
         logger.error(f"Error getting user info: {str(e)}")
-        return {"first_name": "Meta", "last_name": "User"} 
+        return {"first_name": platform, "last_name": "User"} 

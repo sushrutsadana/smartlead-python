@@ -15,7 +15,7 @@ router = APIRouter(prefix="/meta", tags=["meta"])
 # Get environment variables
 META_VERIFY_TOKEN = os.environ.get("META_VERIFY_TOKEN", "your_verification_token")
 PAGE_ACCESS_TOKEN = os.environ.get("META_PAGE_ACCESS_TOKEN", "")
-
+IG_TOKEN = os.environ.get("META_IG_TOKEN", "")
 @router.get("/webhook")
 async def verify_webhook(request: Request):
     """

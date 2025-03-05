@@ -20,6 +20,7 @@ class ActivityType(str, Enum):
     STATUS_CHANGED = "status_changed"
     WHATSAPP_MESSAGE = "whatsapp_message"
     MESSENGER_MESSAGE = "messenger_message"
+    INSTAGRAM_MESSAGE = "instagram_message"
     CALL_ANALYZED = "call_analyzed"
     MEETING_SCHEDULED = "meeting_scheduled"
     MEETING_CANCELED = "meeting_canceled"

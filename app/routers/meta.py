@@ -160,12 +160,12 @@ async def handle_instagram_message(value, lead_service):
             
             logger.info(f"Received Instagram message: {message_text} from {sender_id}")
             
-            # Process the message
+            # Process the message with Instagram activity type
             await process_message(
                 sender_id=sender_id,
                 message_text=message_text,
                 platform_name="Instagram",
-                activity_type=ActivityType.MESSENGER_MESSAGE,  # Reuse messenger type or create a new one
+                activity_type=ActivityType.INSTAGRAM_MESSAGE,  # Use dedicated Instagram type
                 lead_service=lead_service
             )
     except Exception as e:
@@ -186,12 +186,12 @@ async def handle_instagram_message_with_messaging(entry, lead_service):
             
             logger.info(f"Received Instagram message (messaging format): {message_text} from {sender_id}")
             
-            # Process the message with Instagram platform name
+            # Process the message with Instagram platform name and activity type
             await process_message(
                 sender_id=sender_id,
                 message_text=message_text,
                 platform_name="Instagram",
-                activity_type=ActivityType.MESSENGER_MESSAGE,  # We could create a new INSTAGRAM_MESSAGE type
+                activity_type=ActivityType.INSTAGRAM_MESSAGE,  # Use dedicated Instagram type
                 lead_service=lead_service
             )
     except Exception as e:

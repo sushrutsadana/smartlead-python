@@ -19,6 +19,9 @@ class GmailConnectRequest(BaseModel):
     email: str
     expires_at: datetime
 
+class GmailDisconnectRequest(BaseModel):
+    email: str
+
 @router.post("/gmail-connect")
 async def connect_gmail(request: GmailConnectRequest, supabase = Depends(get_supabase)):
     try:
@@ -71,16 +74,16 @@ async def connect_gmail(request: GmailConnectRequest, supabase = Depends(get_sup
         raise HTTPException(status_code=500, detail=f"Failed to connect Gmail: {str(e)}")
 
 @router.post("/gmail-disconnect")
-async def disconnect_gmail(email: str, supabase = Depends(get_supabase)):
+async def disconnect_gmail(request: GmailDisconnectRequest, supabase = Depends(get_supabase)):
     try:
         # Remove tokens from Supabase
-        result = supabase.table("gmail_credentials").delete().eq("email", email).execute()
+        result = supabase.table("gmail_credentials").delete().eq("email", request.email).execute()
         
         if not result.data:
-            raise HTTPException(status_code=404, detail=f"No Gmail connection found for {email}")
+            raise HTTPException(status_code=404, detail=f"No Gmail connection found for {request.email}")
         
-        logger.info(f"Successfully disconnected Gmail for {email}")
-        return {"success": True, "message": f"Gmail disconnected successfully for {email}"}
+        logger.info(f"Successfully disconnected Gmail for {request.email}")
+        return {"success": True, "message": f"Gmail disconnected successfully for {request.email}"}
     except Exception as e:
         logger.error(f"Failed to disconnect Gmail: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to disconnect Gmail: {str(e)}")
